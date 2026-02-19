@@ -11,13 +11,6 @@ static const uint8_t MPU_ADDR = 0x68;
 static const uint8_t REG_PWR_MGMT_1 = 0x6B; // power management
 static const uint8_t REG_ACCEL_XOUT_H = 0x3B; // accel x high
 
-// delay between bit bang
-static const int I2C_DELAY_US = 10;
-
-static void i2c_delay() {
-  delayMicroseconds(I2C_DELAY_US);
-}
-
 // open drain lets you pull it low and goes high when released
 static void sda_output() {
   pinMode(SDA, OUTPUT_OPEN_DRAIN);
@@ -29,43 +22,21 @@ static void sda_input() {
   pinMode(SDA, INPUT_PULLUP); // read SDA while keeping it up
 }
 
-static void scl_high() {
-  digitalWrite(SCL, HIGH);
-}
-
-static void scl_low() {
-  digitalWrite(SCL, LOW);
-}
-
-static void sda_high() {
-  digitalWrite(SDA, HIGH);
-}
-
-static void sda_low() {
-  digitalWrite(SDA, LOW);
-}
-
 // while SCL is high SDA is pulled low then is clocked by SCL low
 static void i2c_start() {
   sda_output();
-  sda_high();
-  scl_high();
-  i2c_delay();
-  sda_low();
-  i2c_delay();
-  scl_low();
-  i2c_delay();
+  digitalWrite(SDA, HIGH);
+  digitalWrite(SCL, HIGH);
+  digitalWrite(SDA, LOW);
+  digitalWrite(SCL, LOW);
 }
 
 // while SCL is high pull SDA from low to high
 static void i2c_stop() {
   sda_output();
-  sda_low();
-  i2c_delay();
-  scl_high();
-  i2c_delay();
-  sda_high();
-  i2c_delay();
+  digitalWrite(SDA, LOW);
+  digitalWrite(SCL, HIGH);
+  digitalWrite(SDA, HIGH);
 }
 
 static bool i2c_write_byte(uint8_t data) {
@@ -73,25 +44,19 @@ static bool i2c_write_byte(uint8_t data) {
   // reads bits 7-0 if current bit is 1 release, if 0 pull low
   for (int i = 7; i >= 0; --i) {
     if (data & (1 << i)) {
-      sda_high();
+      digitalWrite(SDA, HIGH);
     } else {
-      sda_low();
+      digitalWrite(SDA, LOW);
     }
-    i2c_delay();
-    scl_high();
-    i2c_delay();
-    scl_low();
-    i2c_delay();
+    digitalWrite(SCL, HIGH);
+    digitalWrite(SCL, LOW);
   }
 
   // ACK bit - release SDA slave drives SDA low
   sda_input();
-  i2c_delay();
-  scl_high();
-  i2c_delay();
+  digitalWrite(SCL, HIGH);
   bool ack = (digitalRead(SDA) == LOW);
-  scl_low();
-  i2c_delay();
+  digitalWrite(SCL, LOW);
   sda_output();
   return ack;
 }
@@ -101,30 +66,25 @@ static bool i2c_write_byte(uint8_t data) {
 static uint8_t i2c_read_byte(bool send_ack) {
   uint8_t data = 0;
   sda_input();
+  // read MSB
   for (int i = 7; i >= 0; --i) {
-    i2c_delay();
-    scl_high();
-    i2c_delay();
-    if (digitalRead(SDA)) {
+    digitalWrite(SCL, HIGH);
+    if (digitalRead(SDA)) { // if SDA high bit is 1
       data |= (1 << i);
     }
-    scl_low();
-    i2c_delay();
+    digitalWrite(SCL, LOW); // move to next
   }
 
   // ACK/NACK bit
   sda_output();
   // if ack is true pull SDA low otherwise leave high
   if (send_ack) {
-    sda_low();
+    digitalWrite(SDA, LOW);
   } else {
-    sda_high();
+    digitalWrite(SDA, HIGH);
   }
-  i2c_delay();
-  scl_high();
-  i2c_delay();
-  scl_low();
-  i2c_delay();
+  digitalWrite(SCL, HIGH);
+  digitalWrite(SCL, LOW);
   return data;
 }
 
@@ -176,7 +136,7 @@ static bool i2c_read_registers(uint8_t dev_addr, uint8_t start_reg, uint8_t *buf
   if (!ack3) {
     Serial.println("NACK after device address (read)");
   }
-  // read until last byte
+  // read until second to last byte
   for (size_t i = 0; i < len; ++i) {
     bool send_ack = (i + 1 < len);
     buf[i] = i2c_read_byte(send_ack);
@@ -194,8 +154,8 @@ void setup() {
 // release both high
   pinMode(SCL, OUTPUT_OPEN_DRAIN);
   pinMode(SDA, OUTPUT_OPEN_DRAIN);
-  scl_high();
-  sda_high();
+  digitalWrite(SCL, HIGH);
+  digitalWrite(SDA, HIGH);
 
   // write 0 to power management register 0x6B on startup.
   delay(50);
@@ -228,7 +188,8 @@ void loop() {
     float ax_g = ax / 16384.0f;
     float ay_g = ay / 16384.0f;
     float az_g = az / 16384.0f;
-
+    
+    // convert to degrees
     float angle_xy = atan2(ax_g, ay_g) * RAD_TO_DEG;
     float angle_xz = atan2(ax_g, az_g) * RAD_TO_DEG;
     float angle_yz = atan2(ay_g, az_g) * RAD_TO_DEG;
