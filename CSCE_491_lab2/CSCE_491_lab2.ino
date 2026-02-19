@@ -10,11 +10,6 @@ static const uint8_t MPU_ADDR = 0x68;
 // MPU6050 registers
 static const uint8_t REG_PWR_MGMT_1 = 0x6B; // power management
 static const uint8_t REG_ACCEL_XOUT_H = 0x3B; // accel x high
-static const uint8_t REG_ACCEL_XOUT_L = 0x3C; // accel x low
-static const uint8_t REG_ACCEL_YOUT_H = 0x3D; // accell y high
-static const uint8_t REG_ACCEL_YOUT_L = 0x3E; // accel y low
-static const uint8_t REG_ACCEL_ZOUT_H = 0x3F; // accel z high
-static const uint8_t REG_ACCEL_ZOUT_L = 0x40; // accel z low
 
 // delay between bit bang
 static const int I2C_DELAY_US = 10;
