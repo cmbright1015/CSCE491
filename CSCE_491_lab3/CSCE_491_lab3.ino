@@ -6,6 +6,7 @@ static const int ADC_PIN = 15;  // SENSE -> XTAL_32K_P -> GPIO15
 static const float ADC_VREF = 3.3f;
 static const int ADC_MAX = 4095;
 
+// UART pins 
 static const int PSU_RX_PIN = 12;
 static const int PSU_TX_PIN = 13;
 static const unsigned long PSU_TIMEOUT_MS = 1200;
@@ -18,6 +19,7 @@ static const float SWEEP_START_V = 0.0f;
 static const float SWEEP_END_V = 14.2f;
 static const float SWEEP_STEP_V = 0.05f;
 
+// x is the raw ADC code and Y is the ideal ADC voltage for pins
 struct LinStats {
   double n;
   double sumX;
@@ -33,6 +35,7 @@ struct LinearModel {
 
 static LinStats segStats[SEGMENTS];
 static LinearModel segModel[SEGMENTS];
+// only start printing after calibration has finished
 static bool gMonitoringEnabled = false;
 
 static void clearStats(LinStats &s) {
@@ -43,6 +46,7 @@ static void clearStats(LinStats &s) {
   s.sumXY = 0.0;
 }
 
+// increment the sample, and add the sample
 static void addSample(LinStats &s, float x, float y) {
   s.n += 1.0;
   s.sumX += x;
@@ -50,13 +54,14 @@ static void addSample(LinStats &s, float x, float y) {
   s.sumXX += (double)x * (double)x;
   s.sumXY += (double)x * (double)y;
 }
-
+// needs 2 points to fit the line, then computes denom 
 static bool fitLinear(const LinStats &s, LinearModel &model) {
   if (s.n < 2.0) return false;
 
   double denom = s.n * s.sumXX - s.sumX * s.sumX;
   if (fabs(denom) < 1e-9) return false;
 
+// slope and intercept formula
   model.m = (float)((s.n * s.sumXY - s.sumX * s.sumY) / denom);
   model.b = (float)((s.sumY - (double)model.m * s.sumX) / s.n);
   return true;
